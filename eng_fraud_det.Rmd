@@ -1,0 +1,1026 @@
+---
+title: "Financial Fraud Detection Report"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup, include=FALSE}
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE)
+reticulate::py_install(c("pandas", "matplotlib", "seaborn", "scikit-learn"))
+
+```
+---
+
+## Objektive
+This model helps identify potential fraud cases by analyzing unusual trends in financial transactions.
+
+## Scope
+It provides a powerful solution for detecting fraud activities at an early stage in sectors with high transaction volumes such as banking, e-commerce, and insurance.
+
+## Value Added
+This approach minimizes financial losses for organizations while enhancing customer trust and operational sustainability.
+
+## Scenario Modeling
+
+The technical analysis and modeling steps have been supported by real-life scenarios to improve understanding. These scenarios aim to demonstrate how the methods used and the findings obtained reflect business processes. Therefore, the report is designed to add value not only to technical experts but also to business units.
+
+In this context, let's consider an insurance company. The company faces thousands of different transactions every day: claims, premium payments, policy cancellations, and more. In this report, we will illustrate how the analyses make sense for the insurance company.
+
+---
+
+
+## Loading Libraries
+
+In the first step, we import the necessary Python libraries.
+
+**`pandas`** will be used for data processing, **`numpy`** for numerical operations, and **`matplotlib`** and **`seaborn`** for visualization.
+
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+```
+
+
+---
+
+
+## Loading the Dataset
+
+Here, we load our dataset in CSV format using the **pandas.read_csv`** function.
+Then, we use **`df.shape`** to see how many rows and columns are in the dataset.
+
+```{python}
+df = pd.read_csv("AIML Dataset.csv")
+df.shape
+```
+---
+
+## Replace
+
+The code, graphs, and data types have been organized for a more user-friendly experience.
+
+```{python}
+df["type"] = df["type"].replace({
+    "CASH_OUT": "Cash Out",
+    "PAYMENT": "Payment",
+    "TRANSFER": "Transfer",
+    "DEBIT": "Debit",
+    "CASH_IN": "Cash In"
+})
+```
+
+---
+
+
+## Looking at the First Rows
+
+We use the **`head()`** function to display the first 5 rows of the dataset.
+This helps us quickly understand the variable names and the structure of the data.
+
+```{python}
+df.head()
+```
+
+
+---
+
+## Basic Information
+
+We use the **`info()`** function to view the column types, check for missing values, and see the memory usage.
+
+```{python}
+df.info()
+```
+
+
+---
+
+
+## Statistical Summary
+
+We use the **`describe()`** function to display the basic statistics of the numerical variables (mean, standard deviation, min, max, and quartiles).
+
+```{python}
+df.describe()
+```
+
+
+---
+
+
+## Missing Value Check
+
+We use **`isnull().sum()`** to check how many missing values there are in each column.
+This is the first step in data cleaning.
+
+```{python}
+df.isnull().sum()
+```
+
+
+---
+
+## Identifying Columns
+
+We use **`df.columns`** to check the column names.
+
+
+```{python}
+df.columns
+```
+
+
+---
+
+
+## Counting Fraud Cases
+
+The **`value_counts()`** function calculates the frequency distribution of the values in the isFraud column. Here, 0 represents non-fraudulent transactions, and 1 represents fraudulent transactions.
+The number of fraud cases reveals the extent of the risk the organization is exposed to. The frequency of these cases helps identify areas with higher levels of fraudulent activity, assisting in prioritizing actions.
+
+For example, if the system marks 20 out of 1000 requests as fraudulent, the company can understand the extent of its exposure to risk.
+
+
+```{python}
+df["isFraud"].value_counts()
+```
+
+
+---
+
+
+## Counting Flagged Frauds
+
+The **`value_counts()`** function displays the distribution of values in the isFlaggedFraud column. This column shows the transactions automatically flagged as potential fraud by the system.
+The number of flagged frauds indicates which transactions the model considers suspicious. This count is a key metric for balancing the model’s fraud detection capacity (recall) with its tendency to produce false positives (false positive rate).
+
+For example, if the same person reports multiple accidents in a short period, the model will flag this transaction as "under review."
+
+
+```{python}
+df["isFlaggedFraud"].value_counts()
+```
+
+
+---
+
+
+## Dataset Size
+
+The **shape** attribute displays the dimensions of the dataset. The output returns the values in the form of (rows, columns). This shows the total number of transactions and the number of columns (features).
+
+```{python}
+df.shape
+```
+
+
+---
+
+
+## Calculating the Fraud Rate
+
+df["isFraud"].value_counts()[1] → the number of fraud transactions (those with a value of 1),
+
+df.shape[0] → the total number of transactions,
+
+The ratio is calculated by dividing these values,
+
+round(..., 2) rounds the result to two decimal places as a percentage.
+
+```{python}
+round((df["isFraud"].value_counts()[1] / df.shape[0]) * 100,2)
+```
+
+
+---
+
+
+## Transaction Types Overview
+
+This code visualizes the frequency of transaction **`types`** in the type column using a **`bar plot`**. The X-axis represents the transaction types, while the Y-axis shows how many times each type has occurred.
+This allows for easy analysis of which transaction types are used more frequently, thereby highlighting which behaviors are more dominant in the dataset.
+
+Continuing with our example, understanding whether damage claims or premium refunds occur more frequently helps the company identify which area is experiencing the most workload.
+
+```{python}
+df["type"].value_counts().plot(kind="bar", title="Transaction Types", color = "blue")
+plt.xlabel("Transaction Types", labelpad=20)
+plt.ylabel("Participation")
+plt.show()
+```
+
+---
+
+
+## Fraud Rate by Transaction Type
+
+First, the transactions are grouped by type using **`groupby("type")`**. Then, the fraud rate (the mean of **`isFraud`**) is calculated for each type and sorted in descending order. The results are visualized using a bar plot.
+
+This approach helps identify which transaction types carry a higher fraud risk, contributing to risk-focused evaluations and the development of preventive strategies.
+
+For example, if the fraud rate for vehicle accident claims is 5% and for health insurance claims is 15%, this clearly indicates which transaction type poses a higher risk.
+
+```{python}
+fraud_by_type = df.groupby("type")["isFraud"].mean().sort_values(ascending=False)
+fraud_by_type.plot(kind="bar", title="Fraud Rate by Transaction Type", color="Red")
+plt.xlabel("Transaction Types", labelpad=20)
+plt.ylabel("Fraud Rate")
+plt.show()
+```
+
+
+---
+
+
+## Statistical Summary of Transaction Amounts
+
+The **`describe()`** function is used to calculate the statistical summary (minimum, maximum, mean, quartiles, etc.) for the **amount`** column. The values are converted to integers using **astype(int)`**.
+By extracting the general profile of the transaction amounts, it becomes easier to detect unusual activities.
+
+```{python}
+df["amount"].describe().astype(int)
+```
+
+
+---
+
+
+## Transaction Amounts on a Logarithmic Scale
+
+The **`np.log1p()`** function transforms transaction amounts to a logarithmic scale. A histogram is plotted using **`histplot`** to visualize the distribution. The **`kde=True`** parameter adds a density curve, allowing for a clearer view of the distribution. This method, especially by reducing the effect of outliers, enables a more balanced distribution analysis.
+
+Let’s consider damage claims in an insurance company. Most customers submit claims for small amounts (e.g., a few thousand units). However, rarely, there may be claims with very high amounts (e.g., hundreds of thousands). When these claims are displayed on a normal scale, the large amounts overshadow the small ones, making it difficult to see the behavior of the majority. This is where the logarithmic scale comes into play. By balancing the difference between small and large claims, it ensures that both normal and extraordinary claims are visible in the same graph in a fairer way.
+In this way, the company can more easily analyze both routine daily claims and the risky, unusually high claims.
+
+```{python}
+sns.histplot(np.log1p(df["amount"]), bins=100, kde=True, color="green")
+plt.title("Transaction Amount Distribution (Logarithmic Scale)")
+plt.xlabel("Log(Amount + 1)")
+plt.ylabel("Amount")
+plt.show()
+```
+
+
+---
+
+
+## Box Plot for Transactions Below 50K
+
+This code filters transactions below 50,000 **`(amount < 50000)`** and creates a box plot based on the **`isFraud`** status. The distribution of transaction amounts for fraudulent and non-fraudulent transactions is visualized for comparison. This approach provides an important visualization technique for analyzing the trend of fraud cases in terms of transaction amounts.
+
+```{python}
+sns.boxplot(data= df[df["amount"] < 50000], x = "isFraud", y = "amount")
+plt.title("Distribution of Transaction Amounts by Fraud (< 50K))")
+plt.ylabel("Transaction Amount")
+plt.xlabel("Fraud Status")
+plt.show()
+```
+
+
+---
+
+
+## Calculating Balance Differences
+Two new variables have been created in the analysis:
+**`balanceDiffOrig`**: the difference between the sender's balance before and after the transaction,
+**`balanceDiffDest`**: the difference between the receiver's balance before and after the transaction.
+*These columns have been added to identify potential balance inconsistencies during the transaction and to analyze anomalous behaviors more effectively.*
+
+For example, if the account movements of both the insured and the company are inconsistent after a damage payment (i.e., the amount leaving the company and the amount received by the customer are not the same), this indicates a potential fraud risk.
+
+```{python}
+df["balanceDiffOrig"] = df["oldbalanceOrg"] - df["newbalanceOrig"]
+df["balanceDiffDest"] = df["newbalanceDest"] - df["oldbalanceDest"]
+```
+
+
+---
+
+
+## Counting Negative Balance Differences
+
+This expression returns the count of values less than 0 in the balanceDiffOrig column. It counts situations where the sender's balance has **`irrationally increased`** after the transaction.
+
+For example, if an insured individual appears to receive a payment after an accident but actually has extra money in their account, this could indicate either a system error or a malicious attempt.
+
+```{python}
+(df["balanceDiffOrig"] < 0).sum()
+```
+
+
+---
+
+
+## Negative Values in Destination Balance Difference
+
+This expression returns the total count of values less than zero in the **`balanceDiffDest`** column. It counts situations where the receiver's balance has irrationally decreased after the transaction.
+This analysis helps identify potential fraud by counting unreasonable balance decreases.
+
+```{python}
+(df["balanceDiffDest"] < 0).sum()
+
+```
+
+
+---
+
+
+## Displaying the First 2 Rows
+
+The **`head(2)`** function lists the first two rows of the dataset. This is used to quickly inspect the data structure.
+
+
+```{python}
+df.head(2)
+```
+
+
+---
+
+
+## Fraud Distribution Over Time
+
+The **`step`** column contains the time information. Fraudulent transactions are filtered, and the number of fraud cases per step is calculated and visualized using a line chart.
+By tracking the distribution of fraud cases over time, we aim to identify periods when the risk increased and plan preventive actions accordingly.
+
+For example, let’s consider a scenario in an insurance company where damage claims suddenly increase on certain days. These fluctuations could indicate organized fraud attempts or risks that are more concentrated during specific periods.
+
+```{python}
+fraud_per_step = df[df["isFraud"] == 1]["step"].value_counts().sort_index()
+plt.figure(figsize=(12,6))
+plt.plot(fraud_per_step.index , fraud_per_step.values, label="Frauds per Step")
+plt.xlabel("Frauds per step")
+plt.ylabel("Number of Frauds")
+plt.title("Fraud Distribution over Steps")
+plt.grid(True)
+plt.show()
+```
+
+
+---
+
+
+## Dropping the step Column
+
+The **`step`** column is completely removed from the dataset. With **`inplace=True`**, the change is permanent.
+
+```{python}
+df.drop(columns="step",inplace=True)
+```
+
+
+---
+
+
+## Top 10 Senders
+
+The top 10 users with the most transactions in the **`nameOrig`** column are listed. Identifying the most frequent transaction senders helps in detecting unusual transaction volumes, enabling the early detection of potential risks.
+
+For example, in an insurance company, some customers may make significantly more transactions than others. If a user submits hundreds of requests in a short period, this could indicate an unusual situation.
+
+```{python}
+top_senders = df["nameOrig"].value_counts().head(10)
+```
+
+
+---
+
+
+## Displaying the Sender List
+
+The output of **`top_senders`**, calculated in the previous line, is displayed.
+
+```{python}
+top_senders
+```
+
+
+---
+
+
+## Top 10 Receivers
+
+The top 10 users with the most transactions in the **`nameDest`** column are listed.
+
+In an insurance company, it could be observed that some users receive much more payment than others. For example, if the same person is consistently receiving payments from different policies, this could be an unusual and suspicious situation.
+
+```{python}
+top_receivers = df["nameDest"].value_counts().head(10)
+```
+
+
+---
+
+
+## Displaying the Receiver List
+
+The output of **`top_receivers`**, calculated in the previous line, is displayed.
+
+```{python}
+top_receivers
+```
+
+
+---
+
+
+## Top Senders Involved in Fraud
+
+Only transactions where **`isFraud=1`** are filtered, and the top 10 senders with the most fraudulent transactions are listed.
+
+In an insurance company, some individuals may attempt fraud much more frequently than others. For example, if a user repeatedly submits fraudulent damage claims on different dates, this person will stand out in the system.”
+
+```{python}
+fraud_users = df[df["isFraud"]== 1]["nameOrig"].value_counts().head(10)
+```
+
+
+---
+
+
+## Fraudulent Sender List
+
+The output of **`fraud_users`**, obtained in the previous line, is displayed
+
+```{python}
+fraud_users
+```
+
+
+---
+
+
+## Selecting Relevant Types for Fraud
+
+**`Transfer`** and **`Cash Out`** transactions are filtered, and a new DataFrame *(fraud_types)* is created. By filtering for transfer and cash-out transactions, we can focus on a more in-depth analysis of the transaction types where fraud is most commonly observed.
+
+```{python}
+fraud_types = df[df["type"].isin(["Transfer","Cash Out"])]
+```
+
+
+---
+
+
+## First Rows of Fraud Types
+
+The first 5 rows of the **`fraud_types`** DataFrame are displayed.
+
+```{python}
+fraud_types.head()
+```
+
+
+---
+
+
+## Frequencies of Fraud Types
+
+The most frequently occurring type in the filtered data is calculated.
+
+```{python}
+fraud_types["type"].value_counts()
+```
+
+
+---
+
+
+## Fraud Types Column Names
+
+All column names in the **`fraud_types`** DataFrame are printed..
+
+```{python}
+print(fraud_types.columns)
+```
+
+
+---
+
+
+## Fraud Distribution by Type
+
+The **`countplot`** is used to visualize the comparison of fraud and non-fraud cases in *Transfer* and *Cash Out* transactions.
+
+```{python}
+sns.countplot(data=fraud_types, x="type", hue="isFraud", palette="Set1",)
+plt.xticks(rotation=90)
+plt.title("Fraud Spread: Transfer & Cash Out",)
+plt.xlabel("Types", labelpad=25)
+plt.ylabel("Count", )
+plt.show()
+```
+
+
+---
+
+
+## Calculating the Correlation Matrix
+
+The *correlation coefficients* between the selected numerical columns are calculated.
+
+```{python}
+corr = df[["amount","oldbalanceOrg","newbalanceOrig","oldbalanceDest", "newbalanceDest","isFraud"]].corr()
+```
+
+
+---
+
+
+## Correlation Matrix Output
+
+The correlation coefficients table is displayed.
+
+```{python}
+corr
+```
+
+
+---
+
+
+## Visualization of the Correlation Matrix
+
+The correlation matrix is plotted as a **`heatmap`**. Relationships are shown between -1 and +1. By visualizing the correlation matrix with a heatmap, the strength and direction of relationships between variables are clearly revealed. This allows for easy analysis of which variables are more closely related to fraud risk.
+
+For example, if a strong relationship is found between high transaction amounts and balance inconsistencies, this could be an important indicator for suspicious transactions.
+
+```{python}
+plt.figure(figsize=(12,6))
+sns.heatmap(corr, annot=True, cmap= "bwr", fmt =".2f")
+plt.title("Correlation Matrix", )
+plt.tight_layout()
+plt.show()
+```
+
+
+---
+
+
+## Filtering Suspicious Transfer Transactions
+
+Transactions where the sender's balance is greater than 0, but the balance becomes 0 after the transaction, and the type is either Transfer or Cash Out, are selected. This filtering helps identify transactions with unreasonable balance changes and high fraud risk, allowing for a more detailed investigation.
+
+```{python}
+zero_after_transfer = df[
+(df["oldbalanceOrg"]>0) &
+(df["newbalanceOrig"] == 0 ) &
+(df["type"].isin(["Transfer","Cash Out"]))
+]
+```
+
+
+---
+
+
+## Number of Suspicious Transactions
+
+The number of filtered transactions is calculated.
+
+```{python}
+len(zero_after_transfer)
+```
+
+
+---
+
+
+## First 5 Rows of Suspicious Transactions
+
+The first 5 rows of suspicious transactions are displayed.
+
+```{python}
+zero_after_transfer.head(5)
+```
+
+
+---
+
+
+## Frequency of Fraud Cases
+
+The count of fraudulent and non-fraudulent transactions is listed.
+
+```{python}
+df["isFraud"].value_counts()
+```
+
+
+---
+
+
+## Importing the Required Sklearn Libraries
+
+The necessary functions and classes for data preprocessing, modeling, and evaluation are imported.
+
+```{python}
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report , confusion_matrix
+from sklearn.pipeline import  Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.ensemble import RandomForestRegressor
+```
+
+
+---
+
+
+## Dropping Unnecessary Columns for Modeling
+
+The **`nameOrig`**, **`nameDest`**, and **`isFlaggedFraud`** columns are removed from the model. Only meaningful and explanatory variables are left in the model. This ensures that the model produces more accurate, efficient, and generalizable results.
+
+```{python}
+df_model = df.drop(["nameOrig","nameDest", "isFlaggedFraud"], axis= 1 )
+```
+
+
+---
+
+
+## First Rows of the Model Dataset
+
+The first rows of the prepared **`df_model`** dataset are displayed.
+
+```{python}
+df_model.head()
+```
+
+
+---
+
+
+## Separation of Variables by Type
+
+Categorical and numerical variables are defined in separate lists. Defining categorical and numerical variables in separate lists ensures that appropriate analysis methods and modeling techniques are applied to each variable. This improves the model's performance and interpretability.
+
+```{python}
+categorical = ["type"]
+numeric = ["amount", "oldbalanceOrg", "newbalanceOrig","oldbalanceDest","newbalanceDest"]
+```
+
+
+---
+
+
+## Separation of Dependent and Independent Variables
+
+The target variable **(y)* **is **isFraud**, and the independent variables **(X)** are the other columns.
+This is a fundamental step for the model to learn to predict fraud.
+
+```{python}
+y = df_model["isFraud"]
+X = df_model.drop("isFraud", axis= 1 )
+```
+
+
+---
+
+
+## Splitting the Data into Training and Testing Sets
+
+The dataset is split into **70%** training and **30%** testing. The **stratify** parameter ensures that class imbalance is preserved..
+
+```{python}
+X_train, X_test, y_train , y_test = train_test_split(X,y, test_size=0.3, stratify=y)
+```
+
+
+---
+
+
+## Preprocessing Steps
+
+Numerical variables are scaled using **StandardScaler**.
+
+Categorical variables are encoded using **OneHotEncoder**.
+
+```{python}
+preprocessor = ColumnTransformer(
+    transformers=[
+("num",StandardScaler(), numeric ),
+("cat", OneHotEncoder(drop="first"), categorical)
+],
+remainder="drop"
+)
+```
+
+
+---
+
+
+## Logistic Regression Pipeline
+
+The preprocessing and model building steps are combined into a single pipeline.
+
+```{python}
+pipeline = Pipeline([
+("prep",preprocessor),
+("clf",LogisticRegression(class_weight="balanced", max_iter=1000))
+])
+```
+
+
+---
+
+
+## Training the Model
+
+The logistic regression model is trained on the training data using the pipeline.
+
+```{python}
+pipeline.fit(X_train, y_train)
+```
+
+
+---
+
+
+## Encoding Categorical Variables
+
+The **`type`** column is converted into *dummy* variables using **One-Hot Encoding**.
+
+```{python}
+df = pd.get_dummies(df, columns=["type"], drop_first=True)
+```
+
+
+---
+
+
+## Feature and Target Separation (After Dummy Encoding)
+
+The dependent variable is **isFraud**, and the independent variables are the remaining columns.
+
+```{python}
+X = df.drop(["isFraud", "isFlaggedFraud"], axis=1)
+y = df["isFraud"]
+```
+
+
+---
+
+
+## Training-Test Split (After Dummy Encoding)
+
+The dataset is split into **70%** training and **30%** testing.
+
+```{python}
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=200, stratify=y
+)
+```
+
+
+---
+
+
+## Updating the Features
+
+The sender and receiver name columns are also removed from the model.
+
+```{python}
+X = df.drop(["isFraud", "isFlaggedFraud", "nameOrig", "nameDest"], axis=1)
+y = df["isFraud"]
+```
+
+
+---
+
+
+## Training the Random Forest Model
+
+A **Random Forest** classifier is created and trained on the training data.
+
+```{python}
+from sklearn.ensemble import RandomForestClassifier
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=45, stratify=y
+)
+
+rf = RandomForestClassifier(n_estimators=200, class_weight="balanced", random_state=45, n_jobs=-1)
+rf.fit(X_train, y_train)
+
+```
+
+
+---
+
+
+## Evaluating Model Performance
+
+Predictions are made, and the confusion matrix, classification report, and ROC-AUC score are printed.
+Using the confusion matrix, classification report, and ROC-AUC score, the model's strengths and weaknesses are evaluated. These metrics assess the model's ability to distinguish fraud cases, highlighting its reliability.
+
+```{python}
+from sklearn.metrics import roc_auc_score, roc_curve, precision_recall_curve, classification_report, confusion_matrix
+
+y_pred = rf.predict(X_test)
+y_prob = rf.predict_proba(X_test)[:,1]
+
+print("Confusion Matrix:", confusion_matrix(y_test, y_pred))
+print("Classification Report:", classification_report(y_test, y_pred, digits=4))
+print("ROC-AUC:", roc_auc_score(y_test, y_prob))
+
+```
+
+
+---
+
+
+## Filling Missing Values
+
+Missing values are filled with 0, ensuring data integrity and allowing the model to function smoothly.
+
+```{python}
+df = df.fillna(0)
+```
+
+
+---
+
+
+## Scaling the Features
+
+Normalizing the numerical variables using **StandardScaler** ensures that all variables are evaluated on an equal scale. This allows the model to fairly consider each feature in fraud detection..
+
+```{python}
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+```
+
+
+---
+
+
+## Calculating the ROC-AUC Score
+
+The model's ROC-AUC metric is printed.
+
+```{python}
+roc_auc = roc_auc_score(y_test, y_prob)
+print("ROC-AUC Skoru:", roc_auc)
+```
+
+
+---
+
+
+## Printing the Classification Report
+
+**Precision**, **recall**, and **F1** scores are displayed in detail. Reporting precision, recall, and F1 scores allows for a holistic evaluation of the model's performance by balancing accuracy and capture ability.
+
+```{python}
+print("Classification Report:", classification_report(y_test, y_pred, digits=4))
+```
+
+
+---
+
+
+## Displaying the Confusion Matrix
+
+The confusion matrix, comparing the actual and predicted values, is printed. This allows for the identification of misclassifications, providing a concrete basis for improving the model.
+
+```{python}
+cm = confusion_matrix(y_test, y_pred)
+print("Confusion Matrix:", cm)
+```
+
+
+---
+
+
+## Plotting the ROC Curve
+
+The **ROC curve** is plotted using the **FPR** and **TPR** values. The model's performance is measured by the area under the curve (AUC). The higher the **AUC** value, the stronger the model's ability to detect fraud.
+
+```{python}
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+plt.figure(figsize=(6,6))
+plt.plot(fpr, tpr, label=f"Random Forest (AUC = {roc_auc:.2f})")
+plt.plot([0,1], [0,1], 'k--')
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve")
+plt.legend()
+plt.show()
+```
+
+
+---
+
+
+## Plotting the Precision-Recall Curve
+
+The relationship between precision and recall is visualized. This is a critical step in evaluating the model's true performance, especially in imbalanced datasets.
+
+```{python}
+precision, recall, _ = precision_recall_curve(y_test, y_prob)
+plt.figure(figsize=(6,6))
+plt.plot(recall, precision)
+plt.xlabel("Recall")
+plt.ylabel("Precision")
+plt.title("Precision-Recall Curve")
+plt.show()
+```
+
+
+---
+
+
+## Filling Missing Values
+
+Missing values are filled with 0.
+
+```{python}
+df = df.fillna(0)
+```
+
+
+---
+
+
+## Calculating Feature Importances
+
+The top 10 most important features according to the **Random Forest** model are identified and listed with their Turkish equivalents.
+
+```{python}
+importances = rf.feature_importances_
+feat_names = X.columns
+feat_importance_df = pd.DataFrame({"feature": feat_names, "importance": importances})
+feat_importance_df.sort_values(by="importance", ascending=False, inplace=True)
+
+eng_replace= {
+    "balanceDiffOrig": "Balance Diff",
+    "oldbalanceOrg": "Old Balance",
+    "newbalanceOrig": "New Balance",
+    "amount": "Amount",
+    "balanceDiffDest": "Destination Balance Difference",
+    "type_Transfer": "Transfer",
+    "type_Ödeme": "Payment",
+    "newbalanceDest": "New Destination Balance",
+    "type_Nakit Çıkışı": "Cash Out",
+    "type_Nakit Girişi": "Cash In"
+}
+
+
+feat_importance_df["feature"] = feat_importance_df["feature"].map(eng_replace)
+feat_importance_df_eng_replace = feat_importance_df[["feature", "importance"]].rename(columns={"feature": "Feature", "importance": "Importance"})
+top10 = feat_importance_df_eng_replace.head(10)
+
+print(top10)
+
+```
+
+
+---
+
+
+## Printing the Top 10 Features
+
+The top 10 most important features are printed on the screen.
+
+```{python}
+print("TOP 10 Features:", feat_importance_df_eng_replace.head(10))
+```
+
+
+---
+
+
+## Visualization of Feature Importances
+
+The top 10 most important features of the model are visualized using a bar plot. This visualization helps business units interpret technical findings more quickly and accurately.
+
+For example, in an insurance company, visualizing which factors most affect the fraud risk is critical for managers. If transaction amount or balance difference stand out in the model, these factors should be monitored more closely in risk management.
+
+```{python}
+plt.figure(figsize=(10,6))
+sns.barplot(x="importance", y="feature", data=feat_importance_df.head(10),)
+plt.title("TOP 10 Features")
+plt.xlabel("Importance", labelpad=15)
+plt.ylabel("Feature")
+plt.show()
+```
+
+
+---
+
+## Conclusion
+In this report, analyses were performed on the fraud detection model, and the findings were illustrated using an insurance company scenario. The results highlight the areas where fraud risks are concentrated and demonstrate how successfully the model is able to capture these risks. These efforts provide a strategic foundation to reduce financial losses, enhance customer trust, and strengthen operational processes within the organization.
+
+
+
+
